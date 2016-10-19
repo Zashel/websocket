@@ -33,13 +33,13 @@ class WebSocket(object):
                 if data != list(): self.headers[data[0][0]]=data[0][1]
             if "Sec-WebSocket-Key" in self.headers:
                 key = self.headers["Sec-WebSocket-Key"]
-                key = key.join("258EAFA5-E914-47DA-95CA-C5AB0DC85B11")
+                key = "".join((key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
                 key = hashlib.sha1(bytes(key, "utf-8"))
                 key = base64.b64encode(key.digest()).decode("utf-8")
                 accept = "HTTP/1.1 101 Switching Protocols\r\n"
-                accept = accept.join("Upgrade: websocket\r\n")
-                accept = accept.join("Connection: Upgrade\r\n")
-                accept = accept.join("Sec-WebSocket-Accept: {}\r\n\r\n".format(key))
+                accept = "".join((accept, "Upgrade: websocket\r\n"))
+                accept = "".join((accept, "Connection: Upgrade\r\n"))
+                accept = "".join((accept, "Sec-WebSocket-Accept: {}\r\n\r\n".format(key)))
                 self.send(accept)
             else:
                 pass #TODO: implement handler
