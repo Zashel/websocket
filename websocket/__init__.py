@@ -1,16 +1,32 @@
-from ..utils import search_win_drive, daemonize
+from zashel.utils import search_win_drive, daemonize
+from zashel.basehandler import BaseHandler
 import base64
 import http.client
 import hashlib
+import io
+import re
 import socket
+import struct
+
+DEFAULT_BUFFER = 4096
+DEFAULT_LISTENING = 10
+
+BUFFER = DEFAULT_BUFFER
+LISTENING = DEFAULT_LISTENING
 
 class WebSocket(object):
-    def __init__(self, port):
+    def __init__(self, port, handler=BaseHandler()):
         self._socket = socket.socket()
-        self.sock.bind(("",port))
+        self.socket.bind(("",port))
         self.listen()
-        self.conn, self.addr = None, None
+        self._connections = dict()
+        #self.conn, self.addr = None, None
         self._port = port
+        self._handler = handler
+
+    @property
+    def handler(self):
+        return self._handler
 
     @property
     def socket(self):
@@ -22,29 +38,47 @@ class WebSocket(object):
 
     @daemonize
     def listen(self):
-        self.sock.listen(10)
+        self.socket.listen(LISTENING)
         while True:
-            self.conn, self.addr = self.sock.accept()
-            response = self.conn.recv(1024)
+            conn, addr = self.socket.accept()
+            self._connections[addr] = conn
+            response = conn.recv(1024)
             response = response.decode("utf-8").split("\r\n")
-            self.headers = dict()  #Sacar Fuera
-            for line in response:
-                data = re.findall("([\w\W]+): ([\w\W]+)", line)
-                if data != list(): self.headers[data[0][0]]=data[0][1]
-            if "Sec-WebSocket-Key" in self.headers:
-                key = self.headers["Sec-WebSocket-Key"]
-                key = "".join((key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
-                key = hashlib.sha1(bytes(key, "utf-8"))
-                key = base64.b64encode(key.digest()).decode("utf-8")
-                accept = "HTTP/1.1 101 Switching Protocols\r\n"
-                accept = "".join((accept, "Upgrade: websocket\r\n"))
-                accept = "".join((accept, "Connection: Upgrade\r\n"))
-                accept = "".join((accept, "Sec-WebSocket-Accept: {}\r\n\r\n".format(key)))
-                self.send(accept)
-            else:
-                pass #TODO: implement handler
+            self._send_accept(conn, response)
+            self.get_answer(addr)
+            
+    @daemonize
+    def get_answer(self, addr, buff=BUFFER):
+        conn = self._connections[addr]
+        while True:
+            response = bytes()
+            conn.settimeout(0.5)
+            while True:
+                try:
+                    print(conn.recv(buff)) # Please, help, I always receive different information
+                except socket.timeout:
+                    break
+            conn.settimeout(0.0)
 
-    def send(self, data, mask=False):
+    def _send_accept(self, conn, response):
+        headers = dict()
+        for line in response:
+            data = re.findall("([\w\W]+): ([\w\W]+)", line)
+            if data != list(): 
+                headers[data[0][0]]=data[0][1]
+        key = headers["Sec-WebSocket-Key"]
+        key = "".join((key, "258EAFA5-E914-47DA-95CA-C5AB0DC85B11"))
+        key = hashlib.sha1(bytes(key, "utf-8"))
+        key = base64.b64encode(key.digest()).decode("utf-8")
+        accept = "HTTP/1.1 101 Switching Protocols\r\n"
+        accept = "".join((accept, "Upgrade: websocket\r\n"))
+        accept = "".join((accept, "Connection: Upgrade\r\n"))
+        accept = "".join((accept, "Sec-WebSocket-Accept: {}\r\n\r\n".format(key)))
+        self.send(accept, conn)
+        print("Acepted")
+        
+
+    def send(self, data, conn, mask=False):
         try:
             print(data)
             output = io.BytesIO()
@@ -66,6 +100,6 @@ class WebSocket(object):
             if mask:
                 data = bytes(b ^ mask_bits[i % 4] for i, b in enumerate(data))
             output.write(bytes(data, "utf-8"))
-            self.conn.sendall(output.getvalue())
-        except:
-            pass
+            conn.sendall(output.getvalue())
+        except Exception:
+            raise
