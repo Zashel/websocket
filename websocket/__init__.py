@@ -1,3 +1,4 @@
+from .exceptions import *
 from zashel.utils import search_win_drive, daemonize
 from zashel.basehandler import BaseHandler
 import base64
@@ -13,6 +14,7 @@ DEFAULT_LISTENING = 10
 
 BUFFER = DEFAULT_BUFFER
 LISTENING = DEFAULT_LISTENING
+PAYLOAD_OFFSET = 6
 
 class WebSocket(object):
     def __init__(self, port, handler=BaseHandler()):
@@ -45,13 +47,19 @@ class WebSocket(object):
             response = conn.recv(1024)
             response = response.decode("utf-8").split("\r\n")
             self._send_accept(conn, response)
-            self.get_answer(addr)
+            self.get_answer(addr, conn)
             
     @daemonize
-    def get_answer(self, addr, buff=BUFFER):
-        conn = self._connections[addr]
+    def get_answer(self, addr, conn, buff=BUFFER):
         while True:
-            print(conn.recv(buff))
+            try:
+                print(self.decode(conn.recv(buff)))
+            except RecievedNotString as error:
+                if error.type == 8:
+                    conn.close()
+                    break
+                else:
+                    raise error
 
     def _send_accept(self, conn, response):
         headers = dict()
@@ -69,6 +77,30 @@ class WebSocket(object):
         accept = "".join((accept, "Sec-WebSocket-Accept: {}\r\n\r\n".format(key)))
         self.send(accept, conn)
         print("Acepted")
+
+    def decode(self, message): # String messages first. Blob and ByteArray for another moment
+        first_byte = message[0]
+        second_byte = message[1]
+        message_type = first_byte & 0x0F
+        masked = (first_byte & 128) == 128
+        payload_length = second_byte & 0x7F
+        if message_type != 1:
+            raise RecievedNotString(message_type)
+        if masked is not True:
+            return message[2:].decode("utf-8")
+        else:
+            mask = list()
+            for index in range(2, 6):
+                mask.append(message[index])
+            full_data_length = payload_length + PAYLOAD_OFFSET
+            unmasked_message = list()
+            for index in range(PAYLOAD_OFFSET, full_data_length):
+                mask_index = (index - PAYLOAD_OFFSET)%4
+                unmasked_message.append(message[index] ^ mask[mask_index])
+            return bytes(unmasked_message).decode("utf-8")
+        
+        for data in message:
+            print(data)
         
 
     def send(self, data, conn, mask=False):
