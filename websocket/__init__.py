@@ -11,10 +11,12 @@ import struct
 
 DEFAULT_BUFFER = 4096
 DEFAULT_LISTENING = 10
+DEFAULT_TIMEOUT = 300
 
 BUFFER = DEFAULT_BUFFER
 LISTENING = DEFAULT_LISTENING
 PAYLOAD_OFFSET = 6
+TIMEOUT = DEFAULT_TIMEOUT
 
 class WebSocket(object):
     def __init__(self, port, handler=BaseHandler()):
@@ -22,9 +24,17 @@ class WebSocket(object):
         self.socket.bind(("",port))
         self.listen()
         self._connections = dict()
-        #self.conn, self.addr = None, None
         self._port = port
         self._handler = handler
+
+    def __del__(self):
+        for addr in self.connections:
+            self._close_connection(addr)
+        self.socket.close()
+        
+    @property
+    def connections(self):
+        return self._connections
 
     @property
     def handler(self):
@@ -43,7 +53,8 @@ class WebSocket(object):
         self.socket.listen(LISTENING)
         while True:
             conn, addr = self.socket.accept()
-            self._connections[addr] = conn
+            print(addr)
+            self.connections[addr] = conn
             response = conn.recv(1024)
             response = response.decode("utf-8").split("\r\n")
             self._send_accept(conn, response)
@@ -51,15 +62,29 @@ class WebSocket(object):
             
     @daemonize
     def get_answer(self, addr, conn, buff=BUFFER):
+        conn.settimeout(TIMEOUT) #This way always closes
         while True:
             try:
-                print(self.decode(conn.recv(buff)))
+                print(self.decode(conn.recv(buff))) #Handle Answer
             except RecievedNotString as error:
                 if error.type == 8:
-                    conn.close()
+                    self._close_connection(addr, conn)
+                    print("Closing {}".format(addr))
                     break
                 else:
                     raise error
+            except socket.timeout:
+                if self._is_alive(addr, conn) is not True:
+                    break
+
+    def _close_connection(self, addr, conn):
+        self.send("Bye", conn, True) #Change to signal ByeSignal when written
+        conn.close()
+        del(self.connections[addr])
+
+    def _is_alive(self, addr, conn):
+        conn.send(PingSignal())
+        conn.recv(buff)
 
     def _send_accept(self, conn, response):
         headers = dict()
@@ -77,6 +102,7 @@ class WebSocket(object):
         accept = "".join((accept, "Sec-WebSocket-Accept: {}\r\n\r\n".format(key)))
         self.send(accept, conn)
         print("Acepted")
+
 
     def decode(self, message): # String messages first. Blob and ByteArray for another moment
         first_byte = message[0]
@@ -98,7 +124,6 @@ class WebSocket(object):
                 mask_index = (index - PAYLOAD_OFFSET)%4
                 unmasked_message.append(message[index] ^ mask[mask_index])
             return bytes(unmasked_message).decode("utf-8")
-        
         for data in message:
             print(data)
         
