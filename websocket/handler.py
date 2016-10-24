@@ -14,15 +14,6 @@ class WebSocketBaseHandler(BaseHandler):
         else:
             raise WebSocketError()
 
-    def handle(self, signal, addr):
-        if self.is_websocket_connected:
-            try:
-                self.get_signal(signal.action)(signal, addr)
-            except KeyError:
-                pass
-        else:
-            raise WebsocketNotConnectedError()
-
     #Signals        
     def signal_bye(self, signal, addr):
         self._close_connection(addr)
