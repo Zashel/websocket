@@ -1,57 +1,51 @@
-<<<<<<< HEAD
-=======
 from .exceptions import *
->>>>>>> origin/master
+from .signals import *
 from zashel.utils import search_win_drive, daemonize
 from zashel.basehandler import BaseHandler
 import base64
 import http.client
 import hashlib
 import io
+import random
 import re
 import socket
 import struct
+import time
 
 DEFAULT_BUFFER = 4096
 DEFAULT_LISTENING = 10
-<<<<<<< HEAD
-
-BUFFER = DEFAULT_BUFFER
-LISTENING = DEFAULT_LISTENING
-=======
 DEFAULT_TIMEOUT = 300
 
 BUFFER = DEFAULT_BUFFER
 LISTENING = DEFAULT_LISTENING
 PAYLOAD_OFFSET = 6
 TIMEOUT = DEFAULT_TIMEOUT
->>>>>>> origin/master
 
 class WebSocket(object):
-    def __init__(self, port, handler=BaseHandler()):
+    def __init__(self, conn_tuple, handler=BaseHandler()):
+        assert isinstance(conn_tuple, tuple) or isinstance(conn_tuple, list)
+        assert len(conn_tuple)==2
+        addr, port = conn_tuple
+        assert isinstance(addr, str)
+        assert isinstance (port, int)       
+
         self._socket = socket.socket()
-        self.socket.bind(("",port))
+        self.socket.bind((addr ,port))
         self.listen()
         self._connections = dict()
-<<<<<<< HEAD
-        #self.conn, self.addr = None, None
         self._port = port
         self._handler = handler
-
-=======
-        self._port = port
-        self._handler = handler
+        self._pongs = dict()
 
     def __del__(self):
         for addr in self.connections:
             self._close_connection(addr)
-        self.socket.close()
-        
+        self.socket.close()        
+
     @property
     def connections(self):
         return self._connections
 
->>>>>>> origin/master
     @property
     def handler(self):
         return self._handler
@@ -69,39 +63,22 @@ class WebSocket(object):
         self.socket.listen(LISTENING)
         while True:
             conn, addr = self.socket.accept()
-<<<<<<< HEAD
-            self._connections[addr] = conn
-            response = conn.recv(1024)
-            response = response.decode("utf-8").split("\r\n")
-            self._send_accept(conn, response)
-            self.get_answer(addr)
-            
-    @daemonize
-    def get_answer(self, addr, buff=BUFFER):
-        conn = self._connections[addr]
-        while True:
-            response = bytes()
-            conn.settimeout(0.5)
-            while True:
-                try:
-                    print(conn.recv(buff)) # Please, help, I always receive different information
-                except socket.timeout:
-                    break
-            conn.settimeout(0.0)
-=======
             print(addr)
             self.connections[addr] = conn
             response = conn.recv(1024)
             response = response.decode("utf-8").split("\r\n")
             self._send_accept(conn, response)
-            self.get_answer(addr, conn)
-            
+            self.get_answer(addr, conn)            
+
     @daemonize
     def get_answer(self, addr, conn, buff=BUFFER):
         conn.settimeout(TIMEOUT) #This way always closes
         while True:
             try:
-                print(self.decode(conn.recv(buff))) #Handle Answer
+                received = from_json(self.decode(conn.recv(buff)))
+                print(type(received))
+                if isinstance(received, PongSignal):
+                    self._pongs[addr] = received
             except RecievedNotString as error:
                 if error.type == 8:
                     self._close_connection(addr, conn)
@@ -114,14 +91,25 @@ class WebSocket(object):
                     break
 
     def _close_connection(self, addr, conn):
-        self.send("Bye", conn, True) #Change to signal ByeSignal when written
+        self.send(ByeSignal(), conn)
         conn.close()
         del(self.connections[addr])
 
     def _is_alive(self, addr, conn):
-        conn.send(PingSignal())
-        conn.recv(buff)
->>>>>>> origin/master
+        self.send(PingSignal(), conn)
+        received = None
+        for t in range(20):
+            if addr in self._pongs:
+                received = self._pongs[addr]
+                del(self._pongs[addr])
+                break
+            time.sleep(1)
+        print(received)
+        if not isinstance(received, PongSignal):
+            self._close_connection(addr, conn)
+            return False
+        else:
+            return True
 
     def _send_accept(self, conn, response):
         headers = dict()
@@ -139,9 +127,6 @@ class WebSocket(object):
         accept = "".join((accept, "Sec-WebSocket-Accept: {}\r\n\r\n".format(key)))
         self.send(accept, conn)
         print("Acepted")
-<<<<<<< HEAD
-=======
-
 
     def decode(self, message): # String messages first. Blob and ByteArray for another moment
         first_byte = message[0]
@@ -165,17 +150,23 @@ class WebSocket(object):
             return bytes(unmasked_message).decode("utf-8")
         for data in message:
             print(data)
->>>>>>> origin/master
-        
 
-    def send(self, data, conn, mask=False):
+    def send_all(self, data):
+        addrs = [addr for addr in self.connections]
+        for addr in addrs: # "for addr in self.connections" is a really bad idea
+            conn = self.connections[addr]
+            if self._is_alive(addr, conn) is True:
+                self.send(data, self.connections[addr])
+
+    def send(self, data, conn):
         try:
-            print(data)
+            if isinstance(data, WebSocketSignal):
+                data = data.to_json()
             output = io.BytesIO()
             # Prepare the header
             head1 = 0b10000000
             head1 |= 0x01
-            head2 = 0b10000000 if mask else 0
+            head2 = 0
             length = len(data)
             if length < 0x7e:
                 output.write(struct.pack('!BB', head1, head2 | length))
@@ -183,13 +174,8 @@ class WebSocket(object):
                 output.write(struct.pack('!BBH', head1, head2 | 126, length))
             else:
                 output.write(struct.pack('!BBQ', head1, head2 | 127, length))
-            if mask:
-                mask_bits = struct.pack('!I', random.getrandbits(32))
-                output.write(mask_bits)
-            # Prepare the data
-            if mask:
-                data = bytes(b ^ mask_bits[i % 4] for i, b in enumerate(data))
-            output.write(bytes(data, "utf-8"))
+            data = bytes(data, "utf-8")
+            output.write(data)
             conn.sendall(output.getvalue())
         except Exception:
             raise
