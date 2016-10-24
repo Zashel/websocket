@@ -1,7 +1,7 @@
 from .exceptions import *
+from .handler import *
 from .signals import *
 from zashel.utils import search_win_drive, daemonize
-from zashel.basehandler import BaseHandler
 import base64
 import http.client
 import hashlib
@@ -22,7 +22,7 @@ PAYLOAD_OFFSET = 6
 TIMEOUT = DEFAULT_TIMEOUT
 
 class WebSocket(object):
-    def __init__(self, conn_tuple, handler=BaseHandler()):
+    def __init__(self, conn_tuple, handler=WebSocketBaseHandler()):
         assert isinstance(conn_tuple, tuple) or isinstance(conn_tuple, list)
         assert len(conn_tuple)==2
         addr, port = conn_tuple
@@ -35,6 +35,7 @@ class WebSocket(object):
         self._connections = dict()
         self._port = port
         self._handler = handler
+        self._handler.websocket_connect(self)
         self._pongs = dict()
 
     def __del__(self):
@@ -63,7 +64,6 @@ class WebSocket(object):
         self.socket.listen(LISTENING)
         while True:
             conn, addr = self.socket.accept()
-            print(addr)
             self.connections[addr] = conn
             response = conn.recv(1024)
             response = response.decode("utf-8").split("\r\n")
@@ -76,7 +76,7 @@ class WebSocket(object):
         while True:
             try:
                 received = from_json(self.decode(conn.recv(buff)))
-                print(received)
+                self.handler.handle(received, addr)
                 if isinstance(received, PongSignal):
                     self._pongs[addr] = received
             except RecievedNotString as error:
@@ -90,7 +90,9 @@ class WebSocket(object):
                 if self._is_alive(addr, conn) is not True:
                     break
 
-    def _close_connection(self, addr, conn):
+    def _close_connection(self, addr, conn=None):
+        if conn is None:
+            conn = self._connections[addr]
         self.send(ByeSignal(), conn)
         conn.close()
         del(self.connections[addr])
@@ -104,7 +106,6 @@ class WebSocket(object):
                 del(self._pongs[addr])
                 break
             time.sleep(1)
-        print(received)
         if not isinstance(received, PongSignal):
             self._close_connection(addr, conn)
             return False
@@ -148,8 +149,6 @@ class WebSocket(object):
                 mask_index = (index - PAYLOAD_OFFSET)%4
                 unmasked_message.append(message[index] ^ mask[mask_index])
             return bytes(unmasked_message).decode("utf-8")
-        for data in message:
-            print(data)
 
     def send_all(self, data):
         addrs = [addr for addr in self.connections]

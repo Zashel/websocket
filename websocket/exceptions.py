@@ -12,3 +12,6 @@ class RecievedNotString(Exception):
     @property
     def type(self):
         return self._type
+
+class WebsocketNotConnectedError(Exception):
+    pass
