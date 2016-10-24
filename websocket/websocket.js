@@ -2,7 +2,7 @@
 function parse_data(data) {
     console.log(data)
     if (data.signal === "ping") {
-        webSocket.send(signal("pong"))
+        send_pong()
     } else if (data.signal === "message") {
         console.log(data.text)
     } else if (data.signal === "bye") {
@@ -55,13 +55,13 @@ function get_now() {
     return nowStr
 }
 
-function signal(identifier) {
-    if (identifier === "pong") {
-        return JSON.stringify({
-                "signal": "pong", 
-                "date": get_now()
-                })
-    };
+function send_pong() {
+    webSocket.send(
+        JSON.stringify({
+            "signal": "pong", 
+            "date": get_now()
+            })
+    );
 }
 
 function send_bye(){
