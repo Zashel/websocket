@@ -1,4 +1,5 @@
 from .exceptions import *
+from .signals import *
 from zashel.utils import search_win_drive, daemonize
 from zashel.basehandler import BaseHandler
 import base64
@@ -19,9 +20,15 @@ PAYLOAD_OFFSET = 6
 TIMEOUT = DEFAULT_TIMEOUT
 
 class WebSocket(object):
-    def __init__(self, port, handler=BaseHandler()):
+    def __init__(self, conn_tuple, handler=BaseHandler()):
+        assert isinstance(conn_tuple, tuple) or isinstance(conn_tuple, list)
+        assert len(conn_tuple)==2
+        addr, port = conn_tuple
+        assert isinstance(addr, str)
+        assert isinstance (port, int)
+        
         self._socket = socket.socket()
-        self.socket.bind(("",port))
+        self.socket.bind((addr ,port))
         self.listen()
         self._connections = dict()
         self._port = port
@@ -126,11 +133,18 @@ class WebSocket(object):
             return bytes(unmasked_message).decode("utf-8")
         for data in message:
             print(data)
-        
+
+    def send_all(self, data, mask=False):
+        for addr in self.connections:
+            try:
+                self.send(data, self.connections[addr], mask)
+            except ConnectionAbortedError:
+                self._close_connection(addr, self.connections[addr])
 
     def send(self, data, conn, mask=False):
         try:
-            print(data)
+            is isinstance(data, WebSocketSignal):
+                data = data.to_json()
             output = io.BytesIO()
             # Prepare the header
             head1 = 0b10000000
