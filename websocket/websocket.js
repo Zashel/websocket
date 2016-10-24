@@ -53,33 +53,32 @@ function get_now() {
              now.getMinutes()+":"+
              now.getSeconds();
     return nowStr
-}
+};
+
+function signal(signal, datos={}) {
+    result = {
+            "signal": signal,
+            "date": get_now()
+    }
+    for (dato in datos) {
+        result[dato] = datos[dato]
+    }
+    return JSON.stringify(result)
+};
 
 function send_pong() {
-    webSocket.send(
-        JSON.stringify({
-            "signal": "pong", 
-            "date": get_now()
-            })
-    );
-}
+    webSocket.send(signal("pong"));
+};
 
-function send_bye(){
-    webSocket.send(
-        JSON.stringify({
-            "signal": "bye",
-            "date": get_now(),
-        })
-    );
-}
+function send_bye() {
+    webSocket.send("bye");
+};
 
 function send_message(to, text) {
-    webSocket.send(
-        JSON.stringify({
-            "signal": "message",
-            "date": get_now(),
+    webSocket.send(signal(
+        "message", {
             "to": to,
             "text": text
-        })
-    );
+        }
+        ));
 };

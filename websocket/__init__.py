@@ -76,7 +76,7 @@ class WebSocket(object):
         while True:
             try:
                 received = from_json(self.decode(conn.recv(buff)))
-                print(type(received))
+                print(received)
                 if isinstance(received, PongSignal):
                     self._pongs[addr] = received
             except RecievedNotString as error:
