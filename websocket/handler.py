@@ -1,3 +1,4 @@
+from . import WebSocket
 from .exceptions import *
 from zashel.basehandler import BaseHandler
 
@@ -7,8 +8,11 @@ class WebSocketBaseHandler(BaseHandler):
     def is_websocket_connected(self):
         return "websocket" in self._connected_stuff
         
-    def websocket_connect(self, websocket):
-        self.connect_stuff(websocket=websocket) 
+    def connect_websocket(self, websocket):
+        if isinstance(websocket, WebSocket):
+            self.connect_stuff(websocket=websocket)
+        else:
+            raise WebSocketError()
 
     def handle(self, signal, addr):
         if self.is_websocket_connected:

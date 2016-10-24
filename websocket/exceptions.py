@@ -13,5 +13,8 @@ class RecievedNotString(Exception):
     def type(self):
         return self._type
 
+class WebSocketError(Exception):
+    pass
+
 class WebsocketNotConnectedError(Exception):
     pass

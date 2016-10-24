@@ -35,7 +35,7 @@ class WebSocket(object):
         self._connections = dict()
         self._port = port
         self._handler = handler
-        self._handler.websocket_connect(self)
+        self._handler.connect_websocket(self)
         self._pongs = dict()
 
     def __del__(self):
