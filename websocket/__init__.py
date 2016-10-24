@@ -27,8 +27,8 @@ class WebSocket(object):
         assert len(conn_tuple)==2
         addr, port = conn_tuple
         assert isinstance(addr, str)
-        assert isinstance (port, int)
-        
+        assert isinstance (port, int)       
+
         self._socket = socket.socket()
         self.socket.bind((addr ,port))
         self.listen()
@@ -40,8 +40,8 @@ class WebSocket(object):
     def __del__(self):
         for addr in self.connections:
             self._close_connection(addr)
-        self.socket.close()
-        
+        self.socket.close()        
+
     @property
     def connections(self):
         return self._connections
@@ -68,8 +68,8 @@ class WebSocket(object):
             response = conn.recv(1024)
             response = response.decode("utf-8").split("\r\n")
             self._send_accept(conn, response)
-            self.get_answer(addr, conn)
-            
+            self.get_answer(addr, conn)            
+
     @daemonize
     def get_answer(self, addr, conn, buff=BUFFER):
         conn.settimeout(TIMEOUT) #This way always closes
@@ -127,7 +127,6 @@ class WebSocket(object):
         accept = "".join((accept, "Sec-WebSocket-Accept: {}\r\n\r\n".format(key)))
         self.send(accept, conn)
         print("Acepted")
-
 
     def decode(self, message): # String messages first. Blob and ByteArray for another moment
         first_byte = message[0]
