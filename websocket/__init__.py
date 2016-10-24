@@ -6,9 +6,11 @@ import base64
 import http.client
 import hashlib
 import io
+import random
 import re
 import socket
 import struct
+import time
 
 DEFAULT_BUFFER = 4096
 DEFAULT_LISTENING = 10
@@ -33,6 +35,7 @@ class WebSocket(object):
         self._connections = dict()
         self._port = port
         self._handler = handler
+        self._pongs = dict()
 
     def __del__(self):
         for addr in self.connections:
@@ -72,7 +75,10 @@ class WebSocket(object):
         conn.settimeout(TIMEOUT) #This way always closes
         while True:
             try:
-                print(self.decode(conn.recv(buff))) #Handle Answer
+                received = from_json(self.decode(conn.recv(buff)))
+                print(type(received))
+                if isinstance(received, PongSignal):
+                    self._pongs[addr] = received
             except RecievedNotString as error:
                 if error.type == 8:
                     self._close_connection(addr, conn)
@@ -85,13 +91,25 @@ class WebSocket(object):
                     break
 
     def _close_connection(self, addr, conn):
-        self.send("Bye", conn, True) #Change to signal ByeSignal when written
+        self.send(ByeSignal(), conn)
         conn.close()
         del(self.connections[addr])
 
     def _is_alive(self, addr, conn):
-        conn.send(PingSignal())
-        conn.recv(buff)
+        self.send(PingSignal(), conn)
+        received = None
+        for t in range(20):
+            if addr in self._pongs:
+                received = self._pongs[addr]
+                del(self._pongs[addr])
+                break
+            time.sleep(1)
+        print(received)
+        if not isinstance(received, PongSignal):
+            self._close_connection(addr, conn)
+            return False
+        else:
+            return True
 
     def _send_accept(self, conn, response):
         headers = dict()
@@ -134,22 +152,22 @@ class WebSocket(object):
         for data in message:
             print(data)
 
-    def send_all(self, data, mask=False):
-        for addr in self.connections:
-            try:
-                self.send(data, self.connections[addr], mask)
-            except ConnectionAbortedError:
-                self._close_connection(addr, self.connections[addr])
+    def send_all(self, data):
+        addrs = [addr for addr in self.connections]
+        for addr in addrs: # "for addr in self.connections" is a really bad idea
+            conn = self.connections[addr]
+            if self._is_alive(addr, conn) is True:
+                self.send(data, self.connections[addr])
 
-    def send(self, data, conn, mask=False):
+    def send(self, data, conn):
         try:
-            is isinstance(data, WebSocketSignal):
+            if isinstance(data, WebSocketSignal):
                 data = data.to_json()
             output = io.BytesIO()
             # Prepare the header
             head1 = 0b10000000
             head1 |= 0x01
-            head2 = 0b10000000 if mask else 0
+            head2 = 0
             length = len(data)
             if length < 0x7e:
                 output.write(struct.pack('!BB', head1, head2 | length))
@@ -157,13 +175,8 @@ class WebSocket(object):
                 output.write(struct.pack('!BBH', head1, head2 | 126, length))
             else:
                 output.write(struct.pack('!BBQ', head1, head2 | 127, length))
-            if mask:
-                mask_bits = struct.pack('!I', random.getrandbits(32))
-                output.write(mask_bits)
-            # Prepare the data
-            if mask:
-                data = bytes(b ^ mask_bits[i % 4] for i, b in enumerate(data))
-            output.write(bytes(data, "utf-8"))
+            data = bytes(data, "utf-8")
+            output.write(data)
             conn.sendall(output.getvalue())
         except Exception:
             raise

@@ -36,8 +36,14 @@ class WebSocketMetaSignal(MetaSignal):
 
 
 
-def from_json():
-    pass
+def from_json(event):
+    data = json.loads(event)
+    if data["signal"] in WebSocketSignal.classes:
+        signal = WebSocketSignal.classes[data["signal"]]
+        args = signal.arg_names
+        return signal(*[data[name] for name in args])
+    else:
+        return None
 
 #Signals
 ByeSignal = WebSocketMetaSignal("bye")

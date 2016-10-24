@@ -1,11 +1,18 @@
 // Messages parser
 function parse_data(data) {
-    if (data.signal === "ping"):
+    console.log(data)
+    if (data.signal === "ping") {
         webSocket.send(signal("pong"))
+    } else if (data.signal === "message") {
+        console.log(data.text)
+    } else if (data.signal === "bye") {
+        console.log("Connection close as requested by server")
+        webSocket.close()
+    }
 };
 
 // Initialize WebSocket
-function initWebSocket(direction, port, secure_connection, protocols=[]) {
+function initWebSocket(direction, port, secure_connection, protocols=[], parser=parse_data) {
     // Getting the connection String for WebSocket
     connString = "://"+direction+":"+port;
     if (secure_connection === true) {
@@ -26,29 +33,53 @@ function initWebSocket(direction, port, secure_connection, protocols=[]) {
         };
         webSocket.onmessage = function(event) {
             var received = JSON.parse(event.data);
-            parse_data(received)
+            parser(received)
         };
         webSocket.onclose = function() {
-            // Send signal Bye. TODO
+            send_bye()
         };
     }
     else {
         alert("Browser Not Supported");
     };
-}
+};
 
-function signal(identifier) {
-    var now = Date()
-    nowStr = now.getFullYear()+"-"+
+function get_now() {
+    var now = new Date()
+    var nowStr = now.getFullYear()+"-"+
              now.getMonth()+"-"+
              now.getDate()+" "+
              now.getHours()+":"+
              now.getMinutes()+":"+
-             now.getSeconds()
-    if identifier === "pong" {
-        return JSON.dumps({
+             now.getSeconds();
+    return nowStr
+}
+
+function signal(identifier) {
+    if (identifier === "pong") {
+        return JSON.stringify({
                 "signal": "pong", 
-                "date": nowStr
+                "date": get_now()
                 })
     };
 }
+
+function send_bye(){
+    webSocket.send(
+        JSON.stringify({
+            "signal": "bye",
+            "date": get_now(),
+        })
+    );
+}
+
+function send_message(to, text) {
+    webSocket.send(
+        JSON.stringify({
+            "signal": "message",
+            "date": get_now(),
+            "to": to,
+            "text": text
+        })
+    );
+};
