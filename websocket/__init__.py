@@ -1,6 +1,6 @@
 from .exceptions import *
-from .handler import *
 from .signals import *
+from .handler import *
 from zashel.utils import search_win_drive, daemonize
 import base64
 import http.client
@@ -22,11 +22,13 @@ PAYLOAD_OFFSET = 6
 TIMEOUT = DEFAULT_TIMEOUT
 
 class WebSocket(object):
-    def __init__(self, conn_tuple, handler=WebSocketBaseHandler()):
+    '''A WebSocket like the HTML5 homonim.
+    '''
+    def __init__(self, conn_tuple, handler):
         '''It creates a WebSocket to play with the HTML5 homonim.
 
         conn_tuple: as in socket.socket, a tuple with the IP and the port.
-        handler: a WebSocketBaseHandler. It's given an instance of it by 
+        handler: a WebSocketBaseHandler.
          default, to play with.
         '''
         assert isinstance(conn_tuple, tuple) or isinstance(conn_tuple, list)
@@ -53,7 +55,7 @@ class WebSocket(object):
 
     @property
     def connections(self):
-        '''Connectios property. Returns the dictionary.
+        '''Connections property. Returns the dictionary.
         TODO: Aliases?
         '''
         return self._connections

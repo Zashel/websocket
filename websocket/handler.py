@@ -1,4 +1,4 @@
-from . import WebSocket
+from .__init__ import WebSocket
 from .exceptions import *
 from zashel.basehandler import BaseHandler
 
