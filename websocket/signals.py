@@ -35,7 +35,6 @@ class WebSocketMetaSignal(MetaSignal):
         cls.__init__(cls, action, arg_names, arg_types, parent=parent)
 
 
-
 def from_json(event):
     data = json.loads(event)
     if data["signal"] in WebSocketSignal.classes:

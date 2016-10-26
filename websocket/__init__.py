@@ -23,6 +23,12 @@ TIMEOUT = DEFAULT_TIMEOUT
 
 class WebSocket(object):
     def __init__(self, conn_tuple, handler=WebSocketBaseHandler()):
+        '''It creates a WebSocket to play with the HTML5 homonim.
+
+        conn_tuple: as in socket.socket, a tuple with the IP and the port.
+        handler: a WebSocketBaseHandler. It's given an instance of it by 
+         default, to play with.
+        '''
         assert isinstance(conn_tuple, tuple) or isinstance(conn_tuple, list)
         assert len(conn_tuple)==2
         addr, port = conn_tuple
@@ -39,28 +45,42 @@ class WebSocket(object):
         self._pongs = dict()
 
     def __del__(self):
+        '''Close all connections.
+        '''
         for addr in self.connections:
             self._close_connection(addr)
         self.socket.close()        
 
     @property
     def connections(self):
+        '''Connectios property. Returns the dictionary.
+        TODO: Aliases?
+        '''
         return self._connections
 
     @property
     def handler(self):
+        '''Returns the handler given at the instantiating.
+        '''
         return self._handler
 
     @property
     def socket(self):
+        '''Returns the socket associated.
+        '''
         return self._socket
 
     @property
     def port(self):
+        '''Returns the port of the socket.
+        '''
         return self._port
 
     @daemonize
     def listen(self):
+        '''Once it's instantiated, you may make it listen to connect
+        and receive.
+        '''
         self.socket.listen(LISTENING)
         while True:
             conn, addr = self.socket.accept()
@@ -68,10 +88,12 @@ class WebSocket(object):
             response = conn.recv(1024)
             response = response.decode("utf-8").split("\r\n")
             self._send_accept(conn, response)
-            self.get_answer(addr, conn)            
+            self._get_answer(addr, conn)            
 
     @daemonize
-    def get_answer(self, addr, conn, buff=BUFFER):
+    def _get_answer(self, addr, conn, buff=BUFFER):
+        '''A daemon to receive data. Don't use it directly.
+        '''
         conn.settimeout(TIMEOUT) #This way always closes
         while True:
             try:
@@ -91,6 +113,9 @@ class WebSocket(object):
                     break
 
     def _close_connection(self, addr, conn=None):
+        '''To close a connection giving an address.
+        Do I make it "public"?
+        '''
         if conn is None:
             conn = self._connections[addr]
         self.send(ByeSignal(), conn)
@@ -98,6 +123,8 @@ class WebSocket(object):
         del(self.connections[addr])
 
     def _is_alive(self, addr, conn):
+        '''Checks a connection is alive and closes it otherwise.
+        '''
         self.send(PingSignal(), conn)
         received = None
         for t in range(20):
@@ -113,6 +140,8 @@ class WebSocket(object):
             return True
 
     def _send_accept(self, conn, response):
+        '''Sends eh accept string to the websocket.
+        '''
         headers = dict()
         for line in response:
             data = re.findall("([\w\W]+): ([\w\W]+)", line)
@@ -130,6 +159,9 @@ class WebSocket(object):
         print("Acepted")
 
     def decode(self, message): # String messages first. Blob and ByteArray for another moment
+        '''Decodes a received message.
+        May it be "private"?
+        '''
         first_byte = message[0]
         second_byte = message[1]
         message_type = first_byte & 0x0F
@@ -151,6 +183,8 @@ class WebSocket(object):
             return bytes(unmasked_message).decode("utf-8")
 
     def send_all(self, data):
+        '''Send a signal to all connected clients.
+        '''
         addrs = [addr for addr in self.connections]
         for addr in addrs: # "for addr in self.connections" is a really bad idea
             conn = self.connections[addr]
@@ -158,6 +192,8 @@ class WebSocket(object):
                 self.send(data, self.connections[addr])
 
     def send(self, data, conn):
+        '''Sends a signal to given connection.
+        '''
         try:
             if isinstance(data, WebSocketSignal):
                 data = data.to_json()
