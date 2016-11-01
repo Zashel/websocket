@@ -35,11 +35,9 @@ class WebSocket(object):
         assert len(conn_tuple)==2
         addr, port = conn_tuple
         assert isinstance(addr, str)
-        assert isinstance (port, int)       
-
+        assert isinstance (port, int)
         self._socket = socket.socket()
         self.socket.bind((addr ,port))
-        self.listen()
         self._connections = dict()
         self._port = port
         self._handler = handler

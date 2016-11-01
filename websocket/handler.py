@@ -9,7 +9,7 @@ class WebSocketBaseHandler(BaseHandler):
         return "websocket" in self._connected_stuff
         
     def connect_websocket(self, websocket):
-        if isinstance(websocket, WebSocket):
+        if websocket.__class__.__name__ == WebSocket.__name__: #Why isinstance didn't work?
             self.connect_stuff(websocket=websocket)
         else:
             raise WebSocketError()
