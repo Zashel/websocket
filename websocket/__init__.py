@@ -31,14 +31,15 @@ class WebSocket(object):
         handler: a WebSocketBaseHandler.
          default, to play with.
         '''
+        self._connections = dict()
+        self._socket = socket.socket()
         assert isinstance(conn_tuple, tuple) or isinstance(conn_tuple, list)
         assert len(conn_tuple)==2
         addr, port = conn_tuple
+        port = int(port) #Chapuza
         assert isinstance(addr, str)
-        assert isinstance (port, int)
-        self._socket = socket.socket()
+        assert isinstance(port, int)
         self.socket.bind((addr ,port))
-        self._connections = dict()
         self._port = port
         self._handler = handler
         self._handler.connect_websocket(self)
