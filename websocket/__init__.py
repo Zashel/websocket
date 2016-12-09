@@ -196,8 +196,10 @@ class WebSocket(object):
         '''Sends a signal to given connection.
         '''
         try:
-            if isinstance(data, WebSocketSignal):
+            try:
                 data = data.to_json()
+            except:
+                pass
             output = io.BytesIO()
             # Prepare the header
             head1 = 0b10000000
