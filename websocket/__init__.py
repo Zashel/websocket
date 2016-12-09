@@ -189,11 +189,10 @@ class WebSocket(object):
     def send_all(self, data):
         '''Send a signal to all connected clients.
         '''
+        print(data.to_json())
         addrs = [addr for addr in self.connections]
         for addr in addrs: # "for addr in self.connections" is a really bad idea
-            conn = self.connections[addr]
-            if isinstance(data, PingSignal) or self._is_alive(addr, conn) is True:
-                self.send(data, self.connections[addr])
+            self.send(data, self.connections[addr])
 
     def send(self, data, conn):
         '''Sends a signal to given connection.
