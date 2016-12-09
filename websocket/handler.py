@@ -14,6 +14,9 @@ class WebSocketBaseHandler(BaseHandler):
         else:
             raise WebSocketError()
 
+    def terminate(self, counter):
+        pass
+
     #Signals        
     def signal_bye(self, signal, addr):
         self._close_connection(addr)

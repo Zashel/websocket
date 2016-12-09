@@ -122,6 +122,7 @@ class WebSocket(object):
         self.send(ByeSignal(), conn)
         conn.close()
         del(self.connections[addr])
+        self.handler.terminate(len(self.connections))
 
     def _is_alive(self, addr, conn):
         '''Checks a connection is alive and closes it otherwise.
@@ -189,7 +190,7 @@ class WebSocket(object):
         addrs = [addr for addr in self.connections]
         for addr in addrs: # "for addr in self.connections" is a really bad idea
             conn = self.connections[addr]
-            if self._is_alive(addr, conn) is True:
+            if isinstance(data, PingSignal) or self._is_alive(addr, conn) is True:
                 self.send(data, self.connections[addr])
 
     def send(self, data, conn):
@@ -214,6 +215,7 @@ class WebSocket(object):
                 output.write(struct.pack('!BBQ', head1, head2 | 127, length))
             data = bytes(data, "utf-8")
             output.write(data)
+            print(data)
             conn.sendall(output.getvalue())
         except Exception:
             raise
