@@ -19,7 +19,7 @@ class WebSocketBaseHandler(BaseHandler):
 
     #Signals        
     def signal_bye(self, signal, addr):
-        self._close_connection(addr)
+        self.websocket._close_connection(addr)
 
     def signal_message(self, signal, addr):
         print(signal.text) # Implement it yourself

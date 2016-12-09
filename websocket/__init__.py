@@ -112,6 +112,8 @@ class WebSocket(object):
             except socket.timeout:
                 if self._is_alive(addr, conn) is not True:
                     break
+            except OSError:
+                pass
 
     def _close_connection(self, addr, conn=None):
         '''To close a connection giving an address.
@@ -215,7 +217,6 @@ class WebSocket(object):
                 output.write(struct.pack('!BBQ', head1, head2 | 127, length))
             data = bytes(data, "utf-8")
             output.write(data)
-            print(data)
             conn.sendall(output.getvalue())
         except Exception:
             raise
