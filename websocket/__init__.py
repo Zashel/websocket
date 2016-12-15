@@ -184,7 +184,10 @@ class WebSocket(object):
             for index in range(PAYLOAD_OFFSET, full_data_length):
                 mask_index = (index - PAYLOAD_OFFSET)%4
                 unmasked_message.append(message[index] ^ mask[mask_index])
-            return bytes(unmasked_message).decode("utf-8")
+            try:
+                return bytes(unmasked_message).decode("utf-8")
+            except:
+                return self.decode(unmasked_message)
 
     def send_all(self, data):
         '''Send a signal to all connected clients.
