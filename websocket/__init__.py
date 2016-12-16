@@ -12,13 +12,12 @@ import socket
 import struct
 import time
 
-DEFAULT_BUFFER = 4096
+DEFAULT_BUFFER = 4096*10
 DEFAULT_LISTENING = 10
 DEFAULT_TIMEOUT = 300
 
 BUFFER = DEFAULT_BUFFER
 LISTENING = DEFAULT_LISTENING
-PAYLOAD_OFFSET = 6
 TIMEOUT = DEFAULT_TIMEOUT
 
 class WebSocket(object):
@@ -98,10 +97,12 @@ class WebSocket(object):
         conn.settimeout(TIMEOUT) #This way always closes
         while True:
             try:
-                received = from_json(self.decode(conn.recv(buff)))
-                self.handler.handle(received, addr)
-                if isinstance(received, PongSignal):
-                    self._pongs[addr] = received
+                received = conn.recv(buff)
+                final = self.decode(received)
+                final = from_json(final)
+                self.handler.handle(final, addr)
+                if isinstance(final, PongSignal):
+                    self._pongs[addr] = final
             except RecievedNotString as error:
                 if error.type == 8:
                     self._close_connection(addr, conn)
@@ -167,27 +168,30 @@ class WebSocket(object):
         May it be "private"?
         '''
         first_byte = message[0]
-        second_byte = message[1]
         message_type = first_byte & 0x0F
         masked = (first_byte & 128) == 128
-        payload_length = second_byte & 0x7F
+        payload_type = len(message)>pow(2, 32) and 10 or len(message)>126 and 4 or 2 #Easier
+        payload_offset = payload_type + 4
+        payload_length = len(message) - payload_offset
+        print([0x01 & (message[0]>>i) for i in range(0,8)])
         if message_type != 1:
             raise RecievedNotString(message_type)
         if masked is not True:
             return message[2:].decode("utf-8")
         else:
             mask = list()
-            for index in range(2, 6):
+            for index in range(0+payload_type, 4+payload_type):
                 mask.append(message[index])
-            full_data_length = payload_length + PAYLOAD_OFFSET
+            full_data_length = payload_length + payload_offset
             unmasked_message = list()
-            for index in range(PAYLOAD_OFFSET, full_data_length):
-                mask_index = (index - PAYLOAD_OFFSET)%4
+            for index in range(payload_offset, full_data_length):
+                mask_index = (index - payload_offset)%4
                 unmasked_message.append(message[index] ^ mask[mask_index])
             try:
+                print(bytes(unmasked_message))
                 return bytes(unmasked_message).decode("utf-8")
             except:
-                return self.decode(unmasked_message)
+                raise
 
     def send_all(self, data):
         '''Send a signal to all connected clients.
