@@ -191,12 +191,21 @@ class WebSocket(object):
                 print(bytes(unmasked_message))
                 return bytes(unmasked_message).decode("utf-8")
             except:
-                raise
+                f_index = int()
+                count = int()
+                for index in range(0, len(unmasked_message)):
+                    try:
+                        bytes(unmasked_message[:index]).decode("utf-8")
+                        count = int()
+                    except:
+                        count += 1
+                        if count == 1:
+                            f_index = index - 1
+                return re.findall("{[\w\W :\"']+}", bytes(unmasked_message[:f_index]).decode("utf-8"))[0]
 
     def send_all(self, data):
         '''Send a signal to all connected clients.
         '''
-        print(data.to_json())
         addrs = [addr for addr in self.connections]
         for addr in addrs: # "for addr in self.connections" is a really bad idea
             self.send(data, self.connections[addr])
