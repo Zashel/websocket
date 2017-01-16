@@ -49,7 +49,7 @@ class WebSocket(object):
         '''
         for addr in self.connections:
             self._close_connection(addr)
-        self.socket.close()        
+        self.socket.close()
 
     @property
     def connections(self):
@@ -83,6 +83,7 @@ class WebSocket(object):
         '''
         self.socket.listen(LISTENING)
         while True:
+            print(self.uuid)
             conn, addr = self.socket.accept()
             self.connections[addr] = conn
             response = conn.recv(1024)
